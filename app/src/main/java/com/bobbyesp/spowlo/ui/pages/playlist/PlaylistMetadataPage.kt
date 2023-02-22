@@ -34,7 +34,6 @@ import com.bobbyesp.spowlo.utils.DownloaderUtil
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLifecycleComposeApi::class)
 @Composable
 fun PlaylistMetadataPage(onBackPressed: () -> Unit) {
-
     //val songs = downloaderViewModel.songInfoFlow.collectAsStateWithLifecycle()
     val songs = DownloaderUtil.songsState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()

@@ -12,6 +12,7 @@ import com.bobbyesp.spowlo.App.Companion.context
 import com.bobbyesp.spowlo.R
 import com.bobbyesp.spowlo.database.CommandTemplate
 import com.bobbyesp.spowlo.database.DownloadedSongInfo
+import com.bobbyesp.spowlo.ui.common.Route.HOME
 import com.bobbyesp.spowlo.ui.pages.settings.cookies.Cookie
 import com.bobbyesp.spowlo.utils.FilesUtil.getCookiesFile
 import com.bobbyesp.spowlo.utils.FilesUtil.getSdcardTempDir
@@ -20,7 +21,12 @@ import com.bobbyesp.spowlo.utils.PreferencesUtil.getString
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileInputStream
+import java.io.InputStreamReader
 import java.util.UUID
 
 object DownloaderUtil {
@@ -137,26 +143,55 @@ object DownloaderUtil {
         }
     }
 
+    /* @CheckResult
+     private fun getSongInfo(
+         url: String? = null,
+         id: String = getRandomUUID()
+     ): Result<List<Song>> =
+         kotlin.runCatching {
+             val response: List<Song> = SpotDL.getInstance().getSongInfo(url ?: "")
+             mutableSongsState.update {
+                 response
+             }
+             response
+         }*/
+
     @CheckResult
     private fun getSongInfo(
-        url: String? = null,
-        id: String = getRandomUUID()
-    ): Result<List<Song>> =
-        kotlin.runCatching {
-            val response: List<Song> = SpotDL.getInstance().getSongInfo(url ?: "")
-            mutableSongsState.update {
+        url: String = ""
+    ): Result<String> {
+        //Make sure that the path exists
+        val metadataDirectory = File("$HOME/.spotdl/meta_info/")
+
+        if (!metadataDirectory.exists()) {
+            metadataDirectory.mkdirs()
+        }
+
+        with(SpotDL.getInstance()) {
+            val request = SpotDLRequest()
+            val songId = getRandomUUID()
+            request.addOption("save", url)
+            request.addOption("--save-file", "$HOME/.spotdl/meta_info/$songId.spotdl")
+            execute(request, null, null)
+            return kotlin.runCatching {
+                val response = "$HOME/.spotdl/meta_info/$songId.spotdl"
                 response
             }
-            response
         }
+    }
 
     @CheckResult
     fun fetchSongInfoFromUrl(
         url: String, playlistItem: Int = 0, preferences: DownloadPreferences = DownloadPreferences()
-    ): Result<List<Song>> =
+    ): Result<String> =
         kotlin.run {
             getSongInfo(url)
         }
+
+    @CheckResult
+    fun processDataFromFile(filePath: String): Result<List<Song>> {
+        TODO("Not yet implemented. Hadn't time")
+    }
 
     fun updateSongsState(songs: List<Song>) {
         mutableSongsState.update {
@@ -225,23 +260,23 @@ object DownloaderUtil {
                 pathBuilder.append(audioDownloadDir)
                 Log.d(TAG, "downloadSong: $pathBuilder")
 
-                if(useCookies){
+                if (useCookies) {
                     useCookies()
                 }
 
-                if(!useCaching){
+                if (!useCaching) {
                     addOption("--no-cache")
                 }
 
-                if(useYtMetadata){
+                if (useYtMetadata) {
                     addOption("--ytm-data")
                 }
 
-                if(useSyncedLyrics){
+                if (useSyncedLyrics) {
                     addOption("--lyrics", "synced")
                 }
 
-                if(preserveOriginalAudio) {
+                if (preserveOriginalAudio) {
                     addOption("--bitrate", "disable")
                     addAudioFormat()
                 } else {
@@ -249,7 +284,7 @@ object DownloaderUtil {
                     addAudioFormat()
                 }
 
-                if(useSpotifyPreferences){
+                if (useSpotifyPreferences) {
                     addOption("--client-id", spotifyClientID)
                     addOption("--client-secret", spotifyClientSecret)
                 }

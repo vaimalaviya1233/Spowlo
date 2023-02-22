@@ -11,6 +11,7 @@ import com.bobbyesp.spowlo.App.Companion.applicationScope
 import com.bobbyesp.spowlo.App.Companion.context
 import com.bobbyesp.spowlo.database.CommandTemplate
 import com.bobbyesp.spowlo.utils.DownloaderUtil
+import com.bobbyesp.spowlo.utils.DownloaderUtil.processDataFromFile
 import com.bobbyesp.spowlo.utils.FilesUtil
 import com.bobbyesp.spowlo.utils.ToastUtil
 import kotlinx.coroutines.CancellationException
@@ -256,7 +257,9 @@ object Downloader {
                     )
                 }
                 .onSuccess { info ->
-                    for (song in info) {
+                    val songsFullResult: Result<List<Song>> = processDataFromFile(info)
+                    val songList: List<Song> = songsFullResult.getOrElse { emptyList() }
+                    for (song in songList) {
                         downloadResultTemp = downloadSong(
                             songInfo = song,
                             preferences = downloadPreferences
@@ -284,9 +287,27 @@ object Downloader {
                     )
                 }
                 .onSuccess { info ->
-                    DownloaderUtil.updateSongsState(info)
-                    mutableTaskState.update { DownloaderUtil.songsState.value[0].toTask(preferencesHash = downloadPreferences.hashCode()) }
-                    finishProcessing()
+                    Log.d("Downloader", "Info: $info")
+                    val songList: List<Song>
+                    val songsFullResult: Result<List<Song>> = processDataFromFile(info)
+                        .onSuccess {
+                            songList = it
+                            Log.d("Downloader", "SongList: $songList")
+                            DownloaderUtil.updateSongsState(songList)
+                            mutableTaskState.update {
+                                DownloaderUtil.songsState.value[0].toTask(
+                                    preferencesHash = downloadPreferences.hashCode()
+                                )
+                            }
+                            finishProcessing()
+                        }
+                        .onFailure {
+                            manageDownloadError(
+                                it,
+                                isFetchingInfo = true,
+                                isTaskAborted = true
+                            )
+                        }
                 }
         }
     }
